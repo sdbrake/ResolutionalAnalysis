@@ -1,0 +1,2 @@
+# ResolutionalAnalysis
+Resolutional slant analysis.
