@@ -82,6 +82,7 @@ $('start').addEventListener('click', async () => {
 });
 
 $('affBtn').addEventListener('click', () => record('AFF'));
+$('balBtn').addEventListener('click', () => record('BALANCED'));
 $('negBtn').addEventListener('click', () => record('NEG'));
 $('skipBtn').addEventListener('click', () => record('SKIP'));
 
@@ -89,9 +90,10 @@ $('skipBtn').addEventListener('click', () => record('SKIP'));
 document.addEventListener('keydown', e => {
   if ($('drill').style.display === 'none') return;
   if (document.activeElement.tagName === 'TEXTAREA') return;
-  if (e.key.toLowerCase() === 'a') record('AFF');
-  if (e.key.toLowerCase() === 'n') record('NEG');
-  if (e.key.toLowerCase() === 's') record('SKIP');
+if (e.key.toLowerCase() === 'a') record('AFF');
+if (e.key.toLowerCase() === 'b') record('BALANCED');
+if (e.key.toLowerCase() === 'n') record('NEG');
+if (e.key.toLowerCase() === 's') record('SKIP');
 });
 
 // Add a doGet so the dashboard can pull aggregated data as JSON.
