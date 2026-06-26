@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resolution Analysis Drill</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; }
+    body { max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+    #card {
+      border: 2px solid #333; border-radius: 12px; padding: 2rem;
+      min-height: 140px; display: flex; align-items: center;
+      justify-content: center; text-align: center; font-size: 1.4rem;
+    }
+    .controls { display: flex; gap: 1rem; margin-top: 1.5rem; }
+    button {
+      flex: 1; padding: 1rem; font-size: 1.1rem; cursor: pointer;
+      border-radius: 10px; border: 1px solid #888;
+    }
+    .aff { background: #e6f7e6; }
+    .neg { background: #fdeaea; }
+    .meta { display: flex; gap: 1rem; align-items: center; margin-top: 1rem; }
+    .meta label { font-size: 0.9rem; }
+    textarea { width: 100%; margin-top: .75rem; }
+    #status { margin-top: 1rem; min-height: 1.5em; color: #555; font-size: .9rem; }
+    #setup { margin-bottom: 1.5rem; }
+    .stat { color:#666; font-size:.85rem; }
+  </style>
+</head>
+<body>
+  <h1>Resolution Analysis Drill</h1>
+
+  <div id="setup">
+    <label>Your name/handle:
+      <input id="debater" type="text" placeholder="e.g. jordan_k">
+    </label>
+    <button id="start" style="flex:none;width:auto;padding:.5rem 1rem;">Start drill</button>
+  </div>
+
+  <div id="drill" style="display:none;">
+    <div id="card">Loading…</div>
+
+    <div class="meta">
+      <label>Confidence:
+        <select id="confidence">
+          <option value="">—</option>
+          <option value="1">1 (low)</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5 (high)</option>
+        </select>
+      </label>
+      <span class="stat" id="count"></span>
+    </div>
+
+    <textarea id="notes" rows="2" placeholder="Optional: why? (e.g. burden of proof, definitional ground...)"></textarea>
+
+    <div class="controls">
+      <button class="aff" id="affBtn">Favors AFF</button>
+      <button class="neg" id="negBtn">Favors NEG</button>
+    </div>
+    <div class="controls" style="margin-top:.5rem;">
+      <button id="skipBtn" style="flex:none;padding:.5rem 1rem;">Skip</button>
+    </div>
+
+    <div id="status"></div>
+  </div>
+
+  <script src="drill.js"></script>
+</body>
+</html>
