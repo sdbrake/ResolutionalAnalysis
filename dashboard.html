@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resolution Bias Dashboard</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
+    table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+    th, td { border: 1px solid #ccc; padding: .4rem .6rem; text-align: left; font-size: .9rem; }
+    th { cursor: pointer; background: #f3f3f3; }
+    .bar { height: 14px; border-radius: 3px; display:inline-block; vertical-align: middle; }
+    .aff { background: #4caf50; }
+    .neg { background: #e53935; }
+    input { padding: .4rem; width: 240px; }
+    .low-n { color:#999; }
+  </style>
+</head>
+<body>
+  <h1>Resolution Bias Dashboard</h1>
+  <p><input id="filter" placeholder="Filter by text or tag…"></p>
+  <p id="meta"></p>
+
+  <h2>Submissions this week</h2>
+  <div id="debaters"></div>
+
+  <h2>Resolutions (most skewed first)</h2>
+  <table id="tbl">
+    <thead>
+      <tr>
+        <th data-k="resolution">Resolution</th>
+        <th data-k="tags">Tags</th>
+        <th data-k="n">N</th>
+        <th data-k="affPct">AFF %</th>
+        <th data-k="lean">Lean</th>
+        <th data-k="avgConfidence">Conf</th>
+        <th>Split</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const ENDPOINT = 'PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE';
+    let data = null;
+    let sortKey = 'lean', sortAbs = true, sortDir = -1;
+
+    async function load() {
+      const res = await fetch(ENDPOINT);
+      data = await res.json();
+      renderDebaters();
+      render();
+      document.getElementById('meta').textContent =
+        'Last updated: ' + new Date(data.generated).toLocaleString();
+    }
+
+    function renderDebaters() {
+      const d = data.byDebater;
+      const names = Object.keys(d).sort();
+      document.getElementById('debaters').innerHTML =
+        '<table><tr><th>Debater</th><th>This week</th><th>All time</th></tr>' +
+        names.map(n => `<tr><td>${n}</td><td>${d[n].thisWeek}</td><td>${d[n].total}</td></tr>`).join('') +
+        '</table>';
+    }
+
+    function render() {
+      const q = document.getElementById('filter').value.toLowerCase();
+      let rows = data.resolutions.filter(r =>
+        r.resolution.toLowerCase().includes(q) || (r.tags||'').toLowerCase().includes(q));
+
+      rows.sort((a, b) => {
+        let av = a[sortKey], bv = b[sortKey];
+        if (sortAbs) { av = Math.abs(av); bv = Math.abs(bv); }
+        if (typeof av === 'string') return sortDir * av.localeCompare(bv);
+        return sortDir * ((av ?? -999) - (bv ?? -999));
+      });
+
+      const tbody = document.querySelector('#tbl tbody');
+      tbody.innerHTML = rows.map(r => {
+        const w = 120;
+        const affW = Math.round(w * r.affPct / 100);
+        const cls = r.n < 5 ? 'low-n' : '';
+        return `<tr class="${cls}">
+          <td>${r.resolution}</td>
+          <td>${r.tags || ''}</td>
+          <td>${r.n}</td>
+          <td>${r.affPct}%</td>
+          <td>${r.lean > 0 ? '+' : ''}${r.lean}</td>
+          <td>${r.avgConfidence ?? '—'}</td>
+          <td>
+            <span class="bar aff" style="width:${affW}px"></span><span class="bar neg" style="width:${w-affW}px"></span>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    document.querySelectorAll('#tbl th[data-k]').forEach(th => {
+      th.addEventListener('click', () => {
+        const k = th.dataset.k;
+        if (sortKey === k) { sortDir *= -1; }
+        else { sortKey = k; sortDir = (k === 'lean') ? -1 : 1; }
+        sortAbs = (k === 'lean');
+        render();
+      });
+    });
+    document.getElementById('filter').addEventListener('input', render);
+    load();
+  </script>
+</body>
+</html>
