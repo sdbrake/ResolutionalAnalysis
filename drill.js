@@ -93,3 +93,64 @@ document.addEventListener('keydown', e => {
   if (e.key.toLowerCase() === 'n') record('NEG');
   if (e.key.toLowerCase() === 's') record('SKIP');
 });
+
+// Add a doGet so the dashboard can pull aggregated data as JSON.
+function doGet(e) {
+  const stats = computeStats();
+  return json(stats);
+}
+
+function computeStats() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const rows = sheet.getDataRange().getValues();
+  rows.shift(); // drop header
+
+  const byRes = {};   // resolution -> aggregate
+  const byDebater = {};
+  let weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // last Sunday
+  weekStart.setHours(0,0,0,0);
+
+  rows.forEach(r => {
+    const [ts, debater, resolution, tags, choice, confidence] = r;
+    if (choice !== 'AFF' && choice !== 'NEG') return; // ignore skips
+
+    if (!byRes[resolution]) {
+      byRes[resolution] = { resolution, tags, aff: 0, neg: 0, confSum: 0, confN: 0 };
+    }
+    const rec = byRes[resolution];
+    if (choice === 'AFF') rec.aff++; else rec.neg++;
+    if (confidence) { rec.confSum += Number(confidence); rec.confN++; }
+
+    if (!byDebater[debater]) byDebater[debater] = { total: 0, thisWeek: 0 };
+    byDebater[debater].total++;
+    if (ts instanceof Date && ts >= weekStart) byDebater[debater].thisWeek++;
+  });
+
+  const resolutions = Object.values(byRes).map(r => {
+    const total = r.aff + r.neg;
+    const affPct = total ? r.aff / total : 0;
+    return {
+      resolution: r.resolution,
+      tags: r.tags,
+      n: total,
+      affPct: Math.round(affPct * 100),
+      // lean: -100 (all NEG) ... +100 (all AFF)
+      lean: Math.round((affPct - 0.5) * 200),
+      avgConfidence: r.confN ? +(r.confSum / r.confN).toFixed(1) : null
+    };
+  }).sort((a, b) => Math.abs(b.lean) - Math.abs(a.lean)); // most-skewed first
+
+  return { resolutions, byDebater, generated: new Date().toISOString() };
+}
+
+// Optional: also write a tidy "Summary" tab you can chart in Sheets.
+function buildSummaryTab() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sum = ss.getSheetByName('Summary') || ss.insertSheet('Summary');
+  sum.clear();
+  sum.appendRow(['resolution', 'tags', 'n', 'aff%', 'lean (-100..+100)', 'avg confidence']);
+  computeStats().resolutions.forEach(r => {
+    sum.appendRow([r.resolution, r.tags, r.n, r.affPct, r.lean, r.avgConfidence]);
+  });
+}
