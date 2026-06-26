@@ -5,20 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Resolution Bias Dashboard</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
+    body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
     table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
     th, td { border: 1px solid #ccc; padding: .4rem .6rem; text-align: left; font-size: .9rem; }
-    th { cursor: pointer; background: #f3f3f3; }
-    .bar { height: 14px; border-radius: 3px; display:inline-block; vertical-align: middle; }
-    .aff { background: #4caf50; }
-    .neg { background: #e53935; }
-    input { padding: .4rem; width: 240px; }
-    .low-n { color:#999; }
+    th { cursor: pointer; background: #f3f3f3; user-select: none; }
+    th[data-k]:hover { background: #e8e8e8; }
+    .bar { height: 14px; display: inline-block; vertical-align: middle; }
+    .bar.aff { background: #4caf50; }
+    .bar.bal { background: #fbc02d; }
+    .bar.neg { background: #e53935; }
+    .barwrap { white-space: nowrap; border-radius: 3px; overflow: hidden; display: inline-block; }
+    input { padding: .4rem; width: 260px; }
+    .low-n { color: #999; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .legend { font-size: .85rem; color: #555; margin-top: .5rem; }
+    .legend span { display:inline-block; margin-right: 1rem; }
+    .swatch { display:inline-block; width:12px; height:12px; border-radius:2px; vertical-align:middle; margin-right:4px; }
+    #meta { color:#666; font-size:.85rem; }
   </style>
 </head>
 <body>
   <h1>Resolution Bias Dashboard</h1>
   <p><input id="filter" placeholder="Filter by text or tag…"></p>
+  <p class="legend">
+    <span><span class="swatch" style="background:#4caf50"></span>Favors AFF</span>
+    <span><span class="swatch" style="background:#fbc02d"></span>Balanced</span>
+    <span><span class="swatch" style="background:#e53935"></span>Favors NEG</span>
+  </p>
   <p id="meta"></p>
 
   <h2>Submissions this week</h2>
@@ -30,10 +43,12 @@
       <tr>
         <th data-k="resolution">Resolution</th>
         <th data-k="tags">Tags</th>
-        <th data-k="n">N</th>
-        <th data-k="affPct">AFF %</th>
-        <th data-k="lean">Lean</th>
-        <th data-k="avgConfidence">Conf</th>
+        <th data-k="n" class="num">N</th>
+        <th data-k="affPct" class="num">AFF %</th>
+        <th data-k="balPct" class="num">BAL %</th>
+        <th data-k="negPct" class="num">NEG %</th>
+        <th data-k="lean" class="num">Lean</th>
+        <th data-k="avgConfidence" class="num">Conf</th>
         <th>Split</th>
       </tr>
     </thead>
@@ -41,32 +56,49 @@
   </table>
 
   <script>
-    const ENDPOINT = 'https://script.google.com/macros/s/AKfycbxJwwCQXDbQySLUYjF4n6JVTpz3lBpzGiKnutbRKEmZXLl5F3r3K8aWeGIUA9LlIw-2Dw/exec';
+    // ===== CONFIG =====
+    const ENDPOINT = 'PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE';
+    const LOW_N = 5; // rows with fewer ratings than this are greyed out
+    // ==================
+
     let data = null;
     let sortKey = 'lean', sortAbs = true, sortDir = -1;
 
+    const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
+      ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
     async function load() {
-      const res = await fetch(ENDPOINT);
-      data = await res.json();
-      renderDebaters();
-      render();
-      document.getElementById('meta').textContent =
-        'Last updated: ' + new Date(data.generated).toLocaleString();
+      const meta = document.getElementById('meta');
+      try {
+        const res = await fetch(ENDPOINT);
+        data = await res.json();
+        renderDebaters();
+        render();
+        meta.textContent = 'Last updated: ' + new Date(data.generated).toLocaleString();
+      } catch (err) {
+        meta.textContent = '⚠ Could not load data: ' + err +
+          '  (Are you opening this on GitHub Pages, not Neocities? Is ENDPOINT set?)';
+      }
     }
 
     function renderDebaters() {
-      const d = data.byDebater;
+      const d = data.byDebater || {};
       const names = Object.keys(d).sort();
+      if (!names.length) {
+        document.getElementById('debaters').innerHTML = '<p class="low-n">No submissions yet.</p>';
+        return;
+      }
       document.getElementById('debaters').innerHTML =
-        '<table><tr><th>Debater</th><th>This week</th><th>All time</th></tr>' +
-        names.map(n => `<tr><td>${n}</td><td>${d[n].thisWeek}</td><td>${d[n].total}</td></tr>`).join('') +
-        '</table>';
+        '<table><tr><th>Debater</th><th class="num">This week</th><th class="num">All time</th></tr>' +
+        names.map(n =>
+          `<tr><td>${esc(n)}</td><td class="num">${d[n].thisWeek}</td><td class="num">${d[n].total}</td></tr>`
+        ).join('') + '</table>';
     }
 
     function render() {
       const q = document.getElementById('filter').value.toLowerCase();
-      let rows = data.resolutions.filter(r =>
-        r.resolution.toLowerCase().includes(q) || (r.tags||'').toLowerCase().includes(q));
+      let rows = (data.resolutions || []).filter(r =>
+        r.resolution.toLowerCase().includes(q) || (r.tags || '').toLowerCase().includes(q));
 
       rows.sort((a, b) => {
         let av = a[sortKey], bv = b[sortKey];
@@ -75,21 +107,23 @@
         return sortDir * ((av ?? -999) - (bv ?? -999));
       });
 
-      const tbody = document.querySelector('#tbl tbody');
-      tbody.innerHTML = rows.map(r => {
-        const w = 120;
-        const affW = Math.round(w * r.affPct / 100);
-        const cls = r.n < 5 ? 'low-n' : '';
+      const w = 140;
+      document.querySelector('#tbl tbody').innerHTML = rows.map(r => {
+        const aW = Math.round(w * r.affPct / 100);
+        const bW = Math.round(w * r.balPct / 100);
+        const nW = w - aW - bW;
+        const cls = r.n < LOW_N ? 'low-n' : '';
+        const leanStr = (r.lean > 0 ? '+' : '') + r.lean;
         return `<tr class="${cls}">
-          <td>${r.resolution}</td>
-          <td>${r.tags || ''}</td>
-          <td>${r.n}</td>
-          <td>${r.affPct}%</td>
-          <td>${r.lean > 0 ? '+' : ''}${r.lean}</td>
-          <td>${r.avgConfidence ?? '—'}</td>
-          <td>
-            <span class="bar aff" style="width:${affW}px"></span><span class="bar neg" style="width:${w-affW}px"></span>
-          </td>
+          <td>${esc(r.resolution)}</td>
+          <td>${esc(r.tags)}</td>
+          <td class="num">${r.n}</td>
+          <td class="num">${r.affPct}%</td>
+          <td class="num">${r.balPct}%</td>
+          <td class="num">${r.negPct}%</td>
+          <td class="num">${leanStr}</td>
+          <td class="num">${r.avgConfidence ?? '—'}</td>
+          <td><span class="barwrap"><span class="bar aff" style="width:${aW}px"></span><span class="bar bal" style="width:${bW}px"></span><span class="bar neg" style="width:${nW}px"></span></span></td>
         </tr>`;
       }).join('');
     }
@@ -98,11 +132,12 @@
       th.addEventListener('click', () => {
         const k = th.dataset.k;
         if (sortKey === k) { sortDir *= -1; }
-        else { sortKey = k; sortDir = (k === 'lean') ? -1 : 1; }
-        sortAbs = (k === 'lean');
+        else { sortKey = k; sortDir = (k === 'lean' || k === 'n') ? -1 : 1; }
+        sortAbs = (k === 'lean'); // lean sorts by magnitude (most-skewed first)
         render();
       });
     });
+
     document.getElementById('filter').addEventListener('input', render);
     load();
   </script>
